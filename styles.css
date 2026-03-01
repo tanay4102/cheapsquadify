@@ -1,0 +1,451 @@
+/* Squadify — Draft template */
+:root {
+  --bg: #0f1419;
+  --surface: #1a2332;
+  --surface-hover: #243044;
+  --border: #2d3a4d;
+  --text: #e6edf3;
+  --text-muted: #a0aeb9;
+  --accent: #58a6ff;
+  --accent-dim: #388bfd66;
+  --success: #3fb950;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --font-sans: "Segoe UI", system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  line-height: 1.5;
+}
+
+.app {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.header h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0 0 0.25rem 0;
+  letter-spacing: -0.02em;
+}
+
+.tagline {
+  color: var(--text-muted);
+  margin: 0 0 1.5rem 0;
+  font-size: 0.95rem;
+}
+
+.step-indicator {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.step {
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  background: var(--surface);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.step.active {
+  background: var(--accent-dim);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.step.done {
+  background: rgba(63, 185, 80, 0.15);
+  color: var(--success);
+  border-color: var(--success);
+}
+
+/* Main content */
+.main {
+  flex: 1;
+}
+
+.step-panel {
+  display: none;
+  animation: fadeIn 0.25s ease;
+}
+
+.step-panel.active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.step-panel h2 {
+  font-size: 1.35rem;
+  margin: 0 0 0.5rem 0;
+  color: var(--text);
+}
+
+.step-panel h3 {
+  color: var(--text);
+}
+
+.hint, .draft-context {
+  color: var(--text-muted);
+  margin: 0 0 1.5rem 0;
+  font-size: 0.9rem;
+}
+
+.draft-hint {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* Step 1: random formation reveal */
+.formation-reveal {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.formation-shape {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.draft-progress {
+  margin-left: 0.75rem;
+  font-size: 0.85rem;
+}
+
+/* Formations grid */
+.formations-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.formation-card {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.formation-card:hover {
+  background: var(--surface-hover);
+  border-color: var(--text-muted);
+}
+
+.formation-card.selected {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.formation-card .shape {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.formation-card .label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* Buttons */
+.btn {
+  padding: 0.65rem 1.25rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: background 0.2s, opacity 0.2s;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.btn-secondary {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.draft-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+/* Draft step: lineup + formation */
+.draft-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 700px) {
+  .draft-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.lineup-panel h3,
+.pitch-panel h3 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1rem;
+}
+
+.lineup-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+.lineup-player {
+  text-align: left;
+}
+
+.lineup-player.assigned {
+  opacity: 0.6;
+  border-color: var(--success);
+}
+
+.lineup-player.selected {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.lineup-player {
+  color: var(--text);
+  cursor: pointer;
+}
+
+.formation-pitch-draft {
+  min-height: 280px;
+}
+
+.pitch-slot.slot-clickable {
+  cursor: pointer;
+}
+
+.pitch-slot.slot-clickable:hover {
+  background: rgba(255,255,255,0.1);
+}
+
+button.pitch-slot {
+  border: none;
+  font: inherit;
+  color: inherit;
+}
+
+.pitch-panel .btn {
+  margin-top: 1rem;
+}
+
+/* Draft options — player cards */
+.draft-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.player-card {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  color: var(--text);
+}
+
+.player-card:hover {
+  border-color: var(--accent);
+  background: var(--surface-hover);
+}
+
+.player-card .name {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.player-card .meta {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+
+.player-card .overall-badge {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin-top: 0.5rem;
+}
+
+/* Formation pitch (final team) */
+.formation-pitch {
+  background: linear-gradient(180deg, #1e4a3a 0%, #1a3d30 50%, #163328 100%);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  padding: 2rem;
+  margin-bottom: 1.5rem;
+  min-height: 320px;
+  position: relative;
+}
+
+.formation-pitch::before {
+  content: "";
+  position: absolute;
+  inset: 1rem;
+  border: 2px solid rgba(255,255,255,0.15);
+  border-radius: 8px;
+  pointer-events: none;
+}
+
+.pitch-row {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.pitch-slot {
+  width: 80px;
+  min-height: 60px;
+  background: rgba(0,0,0,0.35);
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  font-size: 0.8rem;
+  text-align: center;
+  color: var(--text);
+}
+
+.pitch-slot .slot-position {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  margin-bottom: 0.2rem;
+}
+
+.pitch-slot .slot-name {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.pitch-slot .slot-club {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  margin-top: 0.25rem;
+  line-height: 1.2;
+}
+
+.pitch-slot .slot-overall {
+  font-size: 0.75rem;
+  color: var(--accent);
+  font-weight: 600;
+  margin-top: 0.2rem;
+}
+
+.pitch-slot.empty .slot-name {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* Team stats / score placeholder */
+.team-stats {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.team-stats h3 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1.1rem;
+  color: var(--text);
+}
+
+.team-rating-value {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin: 0 0 0.5rem 0;
+}
+
+.score-note {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+/* Footer */
+.footer {
+  margin-top: auto;
+  padding-top: 2rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.footer code {
+  background: var(--surface);
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+}

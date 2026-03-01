@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Squadify — Draft</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <h1>Squadify</h1>
+      <p class="tagline">Build your squad. Draft by position.</p>
+      <div class="step-indicator">
+        <span class="step active" data-step="1">Formation</span>
+        <span class="step" data-step="2">Draft</span>
+        <span class="step" data-step="3">Team & Score</span>
+      </div>
+    </header>
+
+    <main class="main">
+      <!-- Step 1: Random formation + Start draft -->
+      <section id="step-formation" class="step-panel active">
+        <h2>Your formation</h2>
+        <p class="hint">A formation is chosen at random. Click below to load a club lineup and start drafting.</p>
+        <div class="formation-reveal" id="formation-reveal">
+          <span class="formation-shape" id="formation-shape">—</span>
+        </div>
+        <button type="button" class="btn btn-primary" id="btn-start-draft">
+          Start draft
+        </button>
+      </section>
+
+      <!-- Step 2: Club lineup + assign players to slots -->
+      <section id="step-draft" class="step-panel">
+        <h2>Pick your XI</h2>
+        <p class="draft-context">
+          <strong id="club-version-label">—</strong>
+          <span class="draft-hint" id="draft-hint">Select a player, then click a position to assign.</span>
+        </p>
+        <div class="draft-layout">
+          <div class="lineup-panel">
+            <h3>Lineup</h3>
+            <div class="lineup-list" id="lineup-list">
+              <!-- Player list filled by JS -->
+            </div>
+          </div>
+          <div class="pitch-panel">
+            <h3>Formation</h3>
+            <div class="formation-pitch formation-pitch-draft" id="draft-pitch">
+              <!-- Slots filled by JS -->
+            </div>
+            <button type="button" class="btn btn-primary" id="btn-complete-team" style="display: none;">
+              View team
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Step 3: Final team & score -->
+      <section id="step-team" class="step-panel">
+        <h2>Your squad</h2>
+        <div class="formation-pitch" id="formation-pitch">
+          <!-- Formation layout with selected players, filled by JS -->
+        </div>
+        <div class="team-stats" id="team-stats">
+          <h3>Team rating</h3>
+          <p class="team-rating-value">—</p>
+          <p class="score-note">Average of the 11 players’ <strong>overall</strong> at their positions.</p>
+        </div>
+        <button type="button" class="btn btn-secondary" id="btn-new-draft">Start new draft</button>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>Uses <code>male_players2.csv</code>: short_name, player_positions, club_name, fifa_version, overall.</p>
+    </footer>
+  </div>
+
+  <script>
+    (function() {
+      var startBtn = document.getElementById('btn-start-draft');
+      if (startBtn) {
+        startBtn.addEventListener('click', function() {
+          if (window.squadifyStartDraft) window.squadifyStartDraft();
+          else alert('App is still loading. Try again in a moment.');
+        });
+      }
+    })();
+  </script>
+  <script src="app.js"></script>
+</body>
+</html>
