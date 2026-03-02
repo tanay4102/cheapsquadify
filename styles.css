@@ -403,6 +403,12 @@ button.pitch-slot {
   margin-top: 0.2rem;
 }
 
+.pitch-slot .slot-complimentary {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 0.15rem;
+}
+
 .pitch-slot.empty .slot-name {
   color: var(--text-muted);
   font-style: italic;
