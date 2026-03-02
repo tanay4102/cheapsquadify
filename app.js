@@ -74,9 +74,36 @@
     ]},
   ];
 
-  const CSV_PATH = 'male_players2.csv';
+  const CSV_PATH = 'male_players3.csv';
 
   const POSITION_ORDER = { GK: 0, RB: 1, RWB: 2, CB: 3, RCB: 3, LCB: 3, LB: 4, LWB: 5, CDM: 6, LDM: 6, RDM: 6, CM: 7, LCM: 7, RCM: 7, CAM: 8, LAM: 8, RAM: 8, LM: 9, RM: 10, LW: 11, RW: 12, LF: 13, CF: 14, RF: 15, ST: 16 };
+
+  const PAIRING_ATTRIBUTES = [
+    'pace', 'shooting', 'passing', 'dribbling', 'defending', 'physic',
+    'attacking_crossing', 'attacking_finishing', 'attacking_heading_accuracy', 'attacking_short_passing', 'attacking_volleys',
+    'skill_dribbling', 'skill_curve', 'skill_fk_accuracy', 'skill_long_passing', 'skill_ball_control',
+    'movement_acceleration', 'movement_sprint_speed', 'movement_agility', 'movement_reactions', 'movement_balance',
+    'power_shot_power', 'power_jumping', 'power_stamina', 'power_strength', 'power_long_shots',
+    'mentality_aggression', 'mentality_interceptions', 'mentality_positioning', 'mentality_vision', 'mentality_penalties', 'mentality_composure',
+    'defending_marking_awareness', 'defending_standing_tackle', 'defending_sliding_tackle'
+  ];
+
+  const ALL_OUTFIELD = ['RB', 'RWB', 'LB', 'LWB', 'CB', 'RM', 'CM', 'LM', 'RW', 'LW', 'ST'];
+  const ALL_MIDFIELD_AND_FORWARDS = ['RM', 'RW', 'CM', 'LM', 'LW', 'ST'];
+  const ROLE_PAIRED_WITH = {
+    GK: [],
+    RB: ['RM', 'RW', 'CM', 'CB'],
+    RWB: ['RM', 'RW', 'CM', 'CB'],
+    LB: ['LM', 'LW', 'CM', 'CB'],
+    LWB: ['LM', 'LW', 'CM', 'CB'],
+    CB: ['RWB', 'RB', 'LWB', 'LB', 'CB', 'CM'],
+    CM: ALL_OUTFIELD,
+    RM: ['RM', 'RW', 'CM', 'LM', 'LW', 'ST', 'RB', 'RWB'],
+    RW: ['RM', 'RW', 'CM', 'LM', 'LW', 'ST', 'RB', 'RWB'],
+    LM: ['RM', 'CM', 'LM', 'RW', 'LW', 'ST', 'LB', 'LWB'],
+    LW: ['RM', 'CM', 'LM', 'RW', 'LW', 'ST', 'LB', 'LWB'],
+    ST: ALL_MIDFIELD_AND_FORWARDS,
+  };
 
   let state = {
     formation: null,
@@ -85,12 +112,36 @@
     clubName: '',
     fifaVersion: '',
     selectedTeam: [],
-    usedClubKeys: new Set(),
     selectedLineupIndex: null,
+    clubSequence: [],
+    clubSequenceIndex: 0,
   };
 
   const $ = (sel, el = document) => el.querySelector(sel);
   const $$ = (sel, el = document) => el.querySelectorAll(sel);
+
+  function getGMTDateKey() {
+    const d = new Date();
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    return y + '-' + m + '-' + day;
+  }
+
+  function hashString(str) {
+    let h = 0;
+    for (let i = 0; i < str.length; i++) h = ((h << 5) - h + str.charCodeAt(i)) | 0;
+    return h >>> 0;
+  }
+
+  function seededRng(seed) {
+    return function() {
+      seed = (seed + 0x6D2B79F5) | 0;
+      let t = seed;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      return ((t ^ (t >>> 15)) >>> 0) / 4294967296;
+    };
+  }
 
   function showStep(stepNum) {
     $$('.step-panel').forEach(p => p.classList.remove('active'));
@@ -116,7 +167,47 @@
       if (!map.has(k)) map.set(k, { key: k, clubName: (p.club_name || '').trim(), fifaVersion: String(p.fifa_version || '').trim(), players: [] });
       map.get(k).players.push(p);
     });
-    return Array.from(map.values());
+    return Array.from(map.values()).map(g => {
+      const overalls = g.players.map(p => parseFloat(p.overall)).filter(n => !Number.isNaN(n));
+      g.avgOverall = overalls.length ? overalls.reduce((a, b) => a + b, 0) / overalls.length : 0;
+      g.leagueName = (g.players[0] && g.players[0].league_name) ? String(g.players[0].league_name).trim() : '';
+      return g;
+    });
+  }
+
+  function getClubSequenceForDate(players, dateKey) {
+    const allOptions = getClubVersionOptions(players).filter(g => g.players.length >= 1);
+    if (allOptions.length === 0) return [];
+    const rng = seededRng(hashString(dateKey + 'clubs'));
+    const result = [];
+    let options = allOptions.slice();
+    for (let n = 0; n < 11 && options.length > 0; n++) {
+      const baseWeights = options.map(g => Math.max(1, (g.avgOverall || 0) - 50));
+      const leagueMultiplier = (g) => {
+        const league = (g.leagueName || '').trim();
+        if (league === 'Premier League') return 3;
+        if (league === 'La Liga') return 2;
+        return 1;
+      };
+      const weights = options.map((g, i) => baseWeights[i] * leagueMultiplier(g));
+      const total = weights.reduce((a, b) => a + b, 0);
+      if (total <= 0) {
+        const picked = options[Math.floor(rng() * options.length)];
+        result.push(picked);
+        options = options.filter(o => o.clubName !== picked.clubName);
+        continue;
+      }
+      let r = rng() * total;
+      let picked = null;
+      for (let i = 0; i < options.length; i++) {
+        r -= weights[i];
+        if (r <= 0) { picked = options[i]; break; }
+      }
+      if (!picked) picked = options[options.length - 1];
+      result.push(picked);
+      options = options.filter(o => o.clubName !== picked.clubName);
+    }
+    return result;
   }
 
   function positionSortOrder(player) {
@@ -129,16 +220,6 @@
 
   function sortLineupByPosition(players) {
     return players.slice().sort((a, b) => positionSortOrder(b) - positionSortOrder(a));
-  }
-
-  function pickRandomFormation() {
-    return FORMATIONS[Math.floor(Math.random() * FORMATIONS.length)];
-  }
-
-  function pickRandomClubVersion(players, excludeKeys) {
-    const options = getClubVersionOptions(players).filter(g => g.players.length >= 1 && !excludeKeys.has(g.key));
-    if (options.length === 0) return null;
-    return options[Math.floor(Math.random() * options.length)];
   }
 
   function parseCSVLine(line) {
@@ -184,12 +265,20 @@
 
   function loadPlayers() {
     return fetch(CSV_PATH)
-      .then(r => r.ok ? r.text() : Promise.reject(new Error('CSV not found')))
+      .then(r => {
+        if (!r.ok) throw new Error('CSV not found: ' + CSV_PATH + '. Serve the folder with a local server (e.g. python -m http.server) and ensure ' + CSV_PATH + ' is in the same folder as index.html.');
+        return r.text();
+      })
       .then(parseCSV)
-      .then(rows => { state.players = rows; return rows; })
-      .catch(() => {
-        state.players = getMockPlayers();
-        return state.players;
+      .then(rows => {
+        if (!rows.length) throw new Error('CSV is empty or has no data rows.');
+        state.players = rows;
+        return rows;
+      })
+      .catch(function(err) {
+        state.players = [];
+        alert(err.message || 'Failed to load ' + CSV_PATH + '. Check the file exists and you opened the app via a local server (e.g. http://localhost:8000), not by double-clicking index.html.');
+        return Promise.reject(err);
       });
   }
 
@@ -222,15 +311,21 @@
   }
 
   function startDraft() {
+    state.formation = (window.selectedFormationId && FORMATIONS.find(f => f.id === window.selectedFormationId)) || state.formation;
+    if (!state.formation) {
+      alert('Please select a formation first.');
+      return;
+    }
     loadPlayers().then(() => {
-      state.formation = pickRandomFormation();
-      state.selectedTeam = state.formation.slots.map(() => null);
-      state.usedClubKeys = new Set();
-      const chosen = pickRandomClubVersion(state.players, state.usedClubKeys);
-      if (!chosen) {
-        alert('Not enough clubs in the data. Need at least 11 different club/version combinations.');
+      const dateKey = getGMTDateKey();
+      state.clubSequence = getClubSequenceForDate(state.players, dateKey);
+      if (state.clubSequence.length < 11) {
+        alert('Not enough distinct clubs in the data. Need at least 11 different club names (any version).');
         return;
       }
+      state.clubSequenceIndex = 0;
+      state.selectedTeam = state.formation.slots.map(() => null);
+      const chosen = state.clubSequence[0];
       state.clubName = chosen.clubName;
       state.fifaVersion = chosen.fifaVersion;
       state.lineupPlayers = sortLineupByPosition(chosen.players);
@@ -238,7 +333,7 @@
       renderDraftStep();
     }).catch(function(err) {
       console.error(err);
-      alert('Could not load players. Make sure male_players2.csv is in the same folder.');
+      alert('Could not load players. Make sure male_players3.csv is in the same folder.');
     });
   }
 
@@ -247,7 +342,6 @@
     if (!player) return;
     state.selectedTeam[slotIndex] = player;
     state.selectedLineupIndex = null;
-    state.usedClubKeys.add(state.clubName + '\n' + state.fifaVersion);
     const filled = state.selectedTeam.filter(Boolean).length;
     if (filled >= 11) {
       const completeBtn = document.getElementById('btn-complete-team');
@@ -255,12 +349,8 @@
       renderDraftStep();
       return;
     }
-    const chosen = pickRandomClubVersion(state.players, state.usedClubKeys);
-    if (!chosen) {
-      alert('Not enough clubs left. ' + filled + ' positions filled.');
-      renderDraftStep();
-      return;
-    }
+    state.clubSequenceIndex++;
+    const chosen = state.clubSequence[state.clubSequenceIndex];
     state.clubName = chosen.clubName;
     state.fifaVersion = chosen.fifaVersion;
     state.lineupPlayers = sortLineupByPosition(chosen.players);
@@ -372,21 +462,81 @@
     return parsePositionRating(player.overall);
   }
 
+  function getAttributeValue(player, attr) {
+    if (!player || player[attr] == null || player[attr] === '') return NaN;
+    return parsePositionRating(player[attr]);
+  }
+
+  function parseWorkRate(val) {
+    if (val == null || val === '') return { attack: NaN, defence: NaN };
+    const s = String(val).trim();
+    const i = s.indexOf('/');
+    if (i < 0) return { attack: NaN, defence: NaN };
+    const attackStr = s.slice(0, i).trim().toLowerCase();
+    const defenceStr = s.slice(i + 1).trim().toLowerCase();
+    const score = (x) => { if (x === 'low') return 1; if (x === 'medium') return 2; if (x === 'high') return 3; return NaN; };
+    return { attack: score(attackStr), defence: score(defenceStr) };
+  }
+
+  function pairScore(playerA, playerB) {
+    if (!playerA || !playerB) return NaN;
+    let sum = 0;
+    let count = 0;
+    for (let i = 0; i < PAIRING_ATTRIBUTES.length; i++) {
+      const a = getAttributeValue(playerA, PAIRING_ATTRIBUTES[i]);
+      const b = getAttributeValue(playerB, PAIRING_ATTRIBUTES[i]);
+      if (!Number.isNaN(a) && !Number.isNaN(b)) {
+        sum += Math.max(a, b);
+        count++;
+      }
+    }
+    return count === 0 ? NaN : sum / count;
+  }
+
+  function getComplimentaryScores(selectedTeam, slots) {
+    const pairedRoles = (role) => ROLE_PAIRED_WITH[role] || [];
+    const scores = selectedTeam.map(() => []);
+    for (let i = 0; i < 11; i++) {
+      const roleI = slots[i].role;
+      const allowed = new Set(pairedRoles(roleI));
+      for (let j = 0; j < 11; j++) {
+        if (i === j) continue;
+        if (!allowed.has(slots[j].role)) continue;
+        const pA = selectedTeam[i];
+        const pB = selectedTeam[j];
+        if (!pA || !pB) continue;
+        const ps = pairScore(pA, pB);
+        if (!Number.isNaN(ps)) scores[i].push(ps);
+      }
+    }
+    return scores.map(arr => arr.length === 0 ? NaN : arr.reduce((a, b) => a + b, 0) / arr.length);
+  }
+
   function showTeam() {
     showStep(3);
     const pitch = document.getElementById('formation-pitch');
     const slots = state.formation.slots;
+    const complimentaryScores = getComplimentaryScores(state.selectedTeam, slots);
     const rows = getFormationRows(slots);
     const displayName = (p) => (p && (p.short_name || p.long_name)) ? escapeHtml(p.short_name || p.long_name) : '—';
+    let slotIndex = 0;
     pitch.innerHTML = rows.map(row => `
       <div class="pitch-row">
         ${row.map(({ role, player }) => {
+          const si = slotIndex++;
           const posRating = player ? getRatingAtPosition(player, role) : '';
           const showRating = posRating !== '' && !Number.isNaN(posRating);
+          const compScore = complimentaryScores[si];
+          const showComp = !Number.isNaN(compScore);
+          const club = player ? (player.club_name || '').trim() : '';
+          const year = player ? String(player.fifa_version || '').trim() : '';
+          const clubYear = [club, year ? 'FIFA ' + year : ''].filter(Boolean).join(' · ');
           return '<div class="pitch-slot ' + (player ? '' : 'empty') + '">' +
             '<div class="slot-position">' + escapeHtml(role) + '</div>' +
             '<div class="slot-name">' + displayName(player) + '</div>' +
+            (player && clubYear ? '<div class="slot-club">' + escapeHtml(clubYear) + '</div>' : '') +
             (showRating ? '<div class="slot-overall">' + (Number.isInteger(posRating) ? posRating : posRating.toFixed(1)) + '</div>' : '') +
+            (showComp ? '<div class="slot-complimentary">Comp ' + compScore.toFixed(1) + '</div>' : '') +
             '</div>';
         }).join('')}
       </div>
@@ -401,11 +551,33 @@
         if (!Number.isNaN(r)) ratings.push(r);
       }
     }
-    const teamRating = ratings.length === 11
-      ? (ratings.reduce((a, b) => a + b, 0) / 11).toFixed(1)
-      : '—';
+    const avgOverall = ratings.length === 11 ? ratings.reduce((a, b) => a + b, 0) / 11 : NaN;
+    const compScoresValid = complimentaryScores.filter(c => !Number.isNaN(c));
+    const avgComplimentary = compScoresValid.length > 0 ? compScoresValid.reduce((a, b) => a + b, 0) / compScoresValid.length : NaN;
+    const mentalityValues = state.selectedTeam.map(p => p ? getAttributeValue(p, 'mentality_composure') : NaN).filter(v => !Number.isNaN(v));
+    const avgMentality = mentalityValues.length > 0 ? mentalityValues.reduce((a, b) => a + b, 0) / mentalityValues.length : NaN;
+    const workRates = state.selectedTeam.map(p => p && p.work_rate != null && p.work_rate !== '' ? parseWorkRate(p.work_rate) : { attack: NaN, defence: NaN });
+    const attackWr = workRates.map(w => w.attack).filter(v => !Number.isNaN(v));
+    const defenceWr = workRates.map(w => w.defence).filter(v => !Number.isNaN(v));
+    const avgAttackWorkRate = attackWr.length > 0 ? attackWr.reduce((a, b) => a + b, 0) / attackWr.length : NaN;
+    const avgDefenceWorkRate = defenceWr.length > 0 ? defenceWr.reduce((a, b) => a + b, 0) / defenceWr.length : NaN;
+    let totalScore = Number.isNaN(avgOverall) ? NaN : avgOverall;
+    if (!Number.isNaN(avgComplimentary)) totalScore += 0.2 * avgComplimentary;
+    if (!Number.isNaN(avgMentality)) totalScore += 0.1 * avgMentality;
+    if (!Number.isNaN(avgAttackWorkRate)) totalScore += 5 * avgAttackWorkRate;
+    if (!Number.isNaN(avgDefenceWorkRate)) totalScore += 5 * avgDefenceWorkRate;
+    const finalScore = totalScore;
+    const teamRatingStr = Number.isNaN(avgOverall) ? '—' : avgOverall.toFixed(1);
+    const compStr = Number.isNaN(avgComplimentary) ? '—' : avgComplimentary.toFixed(1);
+    const mentalityStr = Number.isNaN(avgMentality) ? '—' : avgMentality.toFixed(1);
+    const attackWrStr = Number.isNaN(avgAttackWorkRate) ? '—' : avgAttackWorkRate.toFixed(1);
+    const defenceWrStr = Number.isNaN(avgDefenceWorkRate) ? '—' : avgDefenceWorkRate.toFixed(1);
+    const finalStr = Number.isNaN(finalScore) ? '—' : finalScore.toFixed(1);
     const teamStatsEl = document.getElementById('team-stats');
-    teamStatsEl.innerHTML = '<h3>Team rating</h3><p class="team-rating-value">' + teamRating + '</p><p class="score-note">Average of each player’s rating at their position (position column if present, else overall).</p>';
+    teamStatsEl.innerHTML = '<h3>Team rating</h3>' +
+      '<p class="team-rating-value">' + finalStr + '</p>' +
+      '<p class="score-note">Final = average overall + 0.2 × complimentary + 0.1 × mentality + 5 × attack work rate + 5 × defence work rate.</p>' +
+      '<p class="score-breakdown">Average overall: <strong>' + teamRatingStr + '</strong> &nbsp;|&nbsp; Average complimentary: <strong>' + compStr + '</strong> &nbsp;|&nbsp; Average mentality: <strong>' + mentalityStr + '</strong> &nbsp;|&nbsp; Average attack work rate: <strong>' + attackWrStr + '</strong> &nbsp;|&nbsp; Average defence work rate: <strong>' + defenceWrStr + '</strong></p>';
   }
 
   function getFormationRows(slots) {
@@ -416,10 +588,6 @@
   }
 
   function init() {
-    state.formation = pickRandomFormation();
-    const shapeEl = document.getElementById('formation-shape');
-    if (shapeEl) shapeEl.textContent = state.formation.shape;
-
     window.squadifyStartDraft = startDraft;
 
     const completeBtn = document.getElementById('btn-complete-team');
@@ -428,13 +596,16 @@
     const newDraftBtn = document.getElementById('btn-new-draft');
     if (newDraftBtn) {
       newDraftBtn.addEventListener('click', () => {
-        state.formation = pickRandomFormation();
+        state.formation = null;
         state.lineupPlayers = [];
         state.selectedTeam = [];
-        state.usedClubKeys = new Set();
+        state.clubSequence = [];
+        state.clubSequenceIndex = 0;
         state.selectedLineupIndex = null;
-        const shapeEl = document.getElementById('formation-shape');
-        if (shapeEl) shapeEl.textContent = state.formation.shape;
+        window.selectedFormationId = null;
+        $$('.formation-card').forEach(c => c.classList.remove('selected'));
+        const startBtn = document.getElementById('btn-start-draft');
+        if (startBtn) startBtn.disabled = true;
         showStep(1);
       });
     }
